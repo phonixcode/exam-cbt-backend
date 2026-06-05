@@ -30,7 +30,12 @@ const resultsController = {
   getAllResults: asyncHandler(async (req, res) => {
     const result = await resultsService.getAllResults(req.query)
     apiResponse.success(res, 'All results fetched', result.data, 200, result.meta)
-  })
+  }),
+
+  getAnalytics: asyncHandler(async (req, res) => {
+    const data = await resultsService.getAnalytics(req.user._id)
+    apiResponse.success(res, 'Analytics fetched', data)
+  }),
 
 }
 

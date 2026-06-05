@@ -1,54 +1,50 @@
 const ExamSession       = require('./exam-session.model')
 const questionService   = require('../questions/question.service')
 
-// const JAMB_TIME_ALLOWED = 6000  // 1hr 40min in seconds
-const JAMB_TIME_PER_SUBJECT = 1500  // 25 mins per subject in seconds
-const QUESTIONS_PER_SUBJECT = 60
+const ENGLISH_QUESTIONS = 60    // Use of English always 60
+const OTHER_QUESTIONS   = 40    // All other subjects 40
+const MOCK_TIME         = 7200  // 2 hours flat for full mock (180 questions)
+const SECS_PER_QUESTION = 40    // ~40 seconds per question for single subject
+
+const isEnglish = (subject) =>
+  subject.toLowerCase() === 'use of english'
+
+const questionsForSubject = (subject) =>
+  isEnglish(subject) ? ENGLISH_QUESTIONS : OTHER_QUESTIONS
+
+// Mock: JAMB standard is 2 hours for all 180 questions together.
+// Single: 40 seconds per question.
+const timeForSubjects = (subjects, mode) =>
+  mode === 'mock'
+    ? MOCK_TIME
+    : questionsForSubject(subjects[0]) * SECS_PER_QUESTION
 
 const examService = {
 
-  // ─── Start a new exam session ────────────────────────────
   startExam: async (data, userId) => {
-    const { mode, subjects, selectionType, yearFrom, yearTo } = data
+    const { mode, subjects, selectionType, yearFrom, yearTo, course } = data
 
-    // ── Validate ────────────────────────────────────────────
-    if (!subjects || subjects.length === 0) {
+    if (!subjects || subjects.length === 0)
       throw { status: 400, message: 'At least one subject is required' }
-    }
 
-    if (mode === 'mock' && subjects.length !== 4) {
+    if (mode === 'mock' && subjects.length !== 4)
       throw { status: 400, message: 'Mock exam requires exactly 4 subjects' }
-    }
 
-    if (!yearFrom || !yearTo) {
+    if (!yearFrom || !yearTo)
       throw { status: 400, message: 'Year range is required' }
-    }
 
-    if (parseInt(yearFrom) > parseInt(yearTo)) {
-      throw { status: 400, message: 'yearFrom cannot be greater than yearTo' }
-    }
-
-    if (selectionType === 'specific' && yearFrom !== yearTo) {
-      throw { status: 400, message: 'Specific selection requires yearFrom and yearTo to be the same' }
-    }
-
-    // ── Check for ongoing session ────────────────────────────
     const ongoing = await ExamSession.findOne({ user: userId, status: 'ongoing' })
-    if (ongoing) {
-      throw { status: 400, message: 'You have an ongoing exam session. Please submit or abandon it first.' }
-    }
+    if (ongoing)
+      throw { status: 400, message: 'You have an ongoing exam. Please submit or abandon it first.' }
 
-    // ── Fetch questions for each subject ─────────────────────
-    const allAnswers      = []
-    const totalQuestions  = subjects.length * QUESTIONS_PER_SUBJECT
+    // Fetch questions — English gets 60, others get 40
+    const allAnswers = []
 
     for (const subject of subjects) {
+      const limit = questionsForSubject(subject)
+
       const questions = await questionService.getExamQuestions({
-        subject,
-        selectionType,
-        yearFrom,
-        yearTo,
-        limit: QUESTIONS_PER_SUBJECT
+        subject, selectionType, yearFrom, yearTo, limit
       })
 
       for (const q of questions) {
@@ -63,10 +59,6 @@ const examService = {
       }
     }
 
-    const timeAllowed = mode === 'mock'
-      ? JAMB_TIME_PER_SUBJECT * 4        // 6000s = 1hr 40min for 4 subjects
-      : JAMB_TIME_PER_SUBJECT * subjects.length  // 1500s = 25min per subject
-
     const session = await ExamSession.create({
       user:           userId,
       mode,
@@ -74,13 +66,13 @@ const examService = {
       selectionType,
       yearFrom:       parseInt(yearFrom),
       yearTo:         parseInt(yearTo),
-      timeAllowed,
+      course:         course || null,
+      timeAllowed:    timeForSubjects(subjects, mode),
       totalQuestions: allAnswers.length,
       answers:        allAnswers,
       status:         'ongoing'
     })
 
-    // ── Return session with populated questions ───────────────
     return await ExamSession.findById(session._id)
       .populate({
         path:     'answers.question',
@@ -150,8 +142,8 @@ const examService = {
     // ── Calculate subject scores ──────────────────────────────
     const subjectScores = Object.entries(subjectMap).map(([subject, data]) => {
       const percentage = parseFloat(((data.score / data.total) * 100).toFixed(2))
-      const jambScore  = parseFloat(((data.score / data.total) * 100).toFixed(2))
-      // each subject scaled to 100, total 400 across 4 subjects
+      // JAMB: each subject scaled to 100, total out of 400
+      const jambScore  = parseFloat((percentage).toFixed(2))
       return { subject, score: data.score, total: data.total, percentage, jambScore }
     })
 

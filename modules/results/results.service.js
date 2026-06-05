@@ -187,7 +187,69 @@ const resultsService = {
     ])
 
     return { data, meta: paginateMeta(total, page, limit) }
-  }
+  },
+
+  getAnalytics: async (userId) => {
+    const sessions = await ExamSession.find({
+      user: userId, status: 'completed'
+    }).select('subjects mode jambTotal totalPercentage subjectScores createdAt timeTaken totalQuestions totalScore')
+      .sort({ createdAt: 1 })
+
+    if (sessions.length === 0) return {
+      totalExams: 0, averageScore: 0, bestScore: 0,
+      totalTimePracticed: 0, subjectStats: [],
+      scoreTrend: [], weakSubjects: [], predictedScore: null
+    }
+
+    const totalExams         = sessions.length
+    const averageScore       = parseFloat((sessions.reduce((s, e) => s + e.totalPercentage, 0) / totalExams).toFixed(1))
+    const bestScore          = Math.max(...sessions.map(s => s.jambTotal))
+    const totalTimePracticed = sessions.reduce((s, e) => s + (e.timeTaken || 0), 0)
+
+    // Per-subject stats
+    const subjectMap = {}
+    for (const session of sessions) {
+      for (const ss of session.subjectScores) {
+        if (!subjectMap[ss.subject]) {
+          subjectMap[ss.subject] = { subject: ss.subject, attempts: 0, totalPct: 0, best: 0, scores: [] }
+        }
+        subjectMap[ss.subject].attempts++
+        subjectMap[ss.subject].totalPct += ss.percentage
+        subjectMap[ss.subject].scores.push({ date: session.createdAt, score: ss.percentage })
+        if (ss.percentage > subjectMap[ss.subject].best) subjectMap[ss.subject].best = ss.percentage
+      }
+    }
+
+    const subjectStats = Object.values(subjectMap).map(s => ({
+      subject:  s.subject,
+      attempts: s.attempts,
+      average:  parseFloat((s.totalPct / s.attempts).toFixed(1)),
+      best:     s.best,
+      trend:    s.scores.slice(-5).map(x => x.score),
+      isWeak:   (s.totalPct / s.attempts) < 50
+    })).sort((a, b) => a.average - b.average)
+
+    const weakSubjects = subjectStats.filter(s => s.isWeak)
+
+    // Score trend — last 10 exams
+    const scoreTrend = sessions.slice(-10).map(s => ({
+      date:       s.createdAt,
+      jambTotal:  s.jambTotal,
+      percentage: s.totalPercentage,
+      mode:       s.mode
+    }))
+
+    // Predicted JAMB score — average of last 5 exams
+    const last5       = sessions.slice(-5)
+    const predictedScore = last5.length > 0
+      ? parseFloat((last5.reduce((s, e) => s + e.jambTotal, 0) / last5.length).toFixed(1))
+      : null
+
+    return {
+      totalExams, averageScore, bestScore, totalTimePracticed,
+      subjectStats, scoreTrend, weakSubjects, predictedScore
+    }
+  },
 
 }
 

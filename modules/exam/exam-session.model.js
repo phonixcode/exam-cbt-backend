@@ -49,6 +49,15 @@ const examSessionSchema = new mongoose.Schema({
     enum:     ['single', 'mock'],
     required: true
   },
+  course: {
+    type:    String,
+    default: null   // e.g. 'medicine', 'engineering', 'law'
+  },
+  examMode: {
+    type:    String,
+    enum:    ['timed', 'practice'],
+    default: 'timed'
+  },
   subjects: {
     type:     [String],
     required: true
