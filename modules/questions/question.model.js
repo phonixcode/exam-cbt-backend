@@ -23,7 +23,6 @@ const questionSchema = new mongoose.Schema({
     default: 'mcq'
   },
 
-  // ─── Passage ref (optional) ───────────────────────────
   passage: {
     type:    mongoose.Schema.Types.ObjectId,
     ref:     'Passage',

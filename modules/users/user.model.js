@@ -38,14 +38,12 @@ const userSchema = new mongoose.Schema({
   }
 }, { timestamps: true })
 
-// ─── Hash PIN before saving ───────────────────────────────
 userSchema.pre('save', async function () {
   if (!this.isModified('pin')) return
   const salt = await bcrypt.genSalt(10)
   this.pin   = await bcrypt.hash(this.pin, salt)
 })
 
-// ─── Compare entered PIN with stored hash ─────────────────
 userSchema.methods.matchPin = async function (enteredPin) {
   return await bcrypt.compare(enteredPin, this.pin)
 }

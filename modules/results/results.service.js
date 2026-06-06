@@ -4,7 +4,6 @@ const { paginate,
 
 const resultsService = {
 
-  // ─── Get all past sessions for a user (dashboard) ────────
   getUserResults: async (userId, query) => {
     const { page, limit, skip } = paginate(query)
     const filter = { user: userId, status: 'completed' }
@@ -33,7 +32,6 @@ const resultsService = {
     return { data, meta: paginateMeta(total, page, limit) }
   },
 
-  // ─── Get single session result with full review ───────────
   getSessionResult: async (sessionId, userId) => {
     const session = await ExamSession.findOne({
       _id:    sessionId,
@@ -48,7 +46,6 @@ const resultsService = {
     return session
   },
 
-  // ─── Dashboard summary stats for a user ──────────────────
   getDashboardStats: async (userId) => {
     const sessions = await ExamSession.find({
       user:   userId,
@@ -67,7 +64,6 @@ const resultsService = {
       }
     }
 
-    // ── Overall stats ──────────────────────────────────────
     const totalExams         = sessions.length
     const averageScore       = parseFloat(
       (sessions.reduce((sum, s) => sum + s.totalPercentage, 0) / totalExams).toFixed(2)
@@ -75,7 +71,6 @@ const resultsService = {
     const bestScore          = Math.max(...sessions.map(s => s.totalPercentage))
     const totalTimePracticed = sessions.reduce((sum, s) => sum + s.timeTaken, 0)
 
-    // ── Per subject stats ──────────────────────────────────
     const subjectMap = {}
 
     for (const session of sessions) {
@@ -106,7 +101,6 @@ const resultsService = {
       trend:        s.scores.slice(-5)   // last 5 scores for mini chart
     }))
 
-    // ── Score trend (last 10 exams) ────────────────────────
     const trend = sessions
       .slice(-10)
       .map(s => ({
@@ -116,7 +110,6 @@ const resultsService = {
         mode:       s.mode
       }))
 
-    // ── Recent 5 sessions ──────────────────────────────────
     const recentSessions = sessions
       .slice(-5)
       .reverse()
@@ -141,7 +134,6 @@ const resultsService = {
     }
   },
 
-  // ─── Get weak areas (questions answered wrongly most) ────
   getWeakAreas: async (userId) => {
     const sessions = await ExamSession.find({
       user:   userId,
@@ -167,7 +159,6 @@ const resultsService = {
     return weakAreas
   },
 
-  // ─── Admin — get all results across all users ─────────────
   getAllResults: async (query) => {
     const { page, limit, skip } = paginate(query)
     const filter = { status: 'completed' }
@@ -206,7 +197,6 @@ const resultsService = {
     const bestScore          = Math.max(...sessions.map(s => s.totalPercentage))
     const totalTimePracticed = sessions.reduce((s, e) => s + (e.timeTaken || 0), 0)
 
-    // Per-subject stats
     const subjectMap = {}
     for (const session of sessions) {
       for (const ss of session.subjectScores) {
@@ -231,7 +221,6 @@ const resultsService = {
 
     const weakSubjects = subjectStats.filter(s => s.isWeak)
 
-    // Score trend — last 10 exams
     const scoreTrend = sessions.slice(-10).map(s => ({
       date:       s.createdAt,
       percentage: s.totalPercentage,
@@ -239,7 +228,6 @@ const resultsService = {
       mode:       s.mode
     }))
 
-    // Predicted score — average percentage of last 5 exams
     const last5       = sessions.slice(-5)
     const predictedScore = last5.length > 0
       ? parseFloat((last5.reduce((s, e) => s + e.totalPercentage, 0) / last5.length).toFixed(1))

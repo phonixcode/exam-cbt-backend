@@ -5,7 +5,6 @@ const { paginate,
 
 const questionService = {
 
-  // ─── List questions with filters ────────────────────────
   listQuestions: async (query) => {
     const { page, limit, skip } = paginate(query)
     const filter = { isActive: true }
@@ -32,7 +31,6 @@ const questionService = {
     return { data, meta: paginateMeta(total, page, limit) }
   },
 
-  // ─── Get single question ─────────────────────────────────
   getQuestion: async (id) => {
     const question = await Question.findById(id)
       .populate('passage', 'title passageText passageImage')
@@ -40,8 +38,7 @@ const questionService = {
     return question
   },
 
-  // ─── Get questions for an exam session (by topic) ───────
-  // limit = null/0 → use every available question for the topic
+
   getExamQuestions: async ({ subject, limit = null }) => {
     const filter = { isActive: true, subject: subject.toLowerCase() }
 
@@ -58,7 +55,6 @@ const questionService = {
     return limit ? shuffled.slice(0, limit) : shuffled
   },
 
-  // ─── Create single question ──────────────────────────────
   createQuestion: async (data, userId) => {
     const exists = await Question.findOne({
       subject:        data.subject.toLowerCase(),
@@ -75,7 +71,6 @@ const questionService = {
     return await Question.create({ ...data, uploadedBy: userId })
   },
 
-  // ─── Bulk create questions ───────────────────────────────
   bulkCreateQuestions: async (questions, userId) => {
     const results = { created: 0, skipped: 0, errors: [] }
 
@@ -97,7 +92,6 @@ const questionService = {
     return results
   },
 
-  // ─── Update question ─────────────────────────────────────
   updateQuestion: async (id, data) => {
     const question = await Question.findByIdAndUpdate(
       id,
@@ -108,7 +102,6 @@ const questionService = {
     return question
   },
 
-  // ─── Soft delete (deactivate) ────────────────────────────
   deactivateQuestion: async (id) => {
     const question = await Question.findByIdAndUpdate(
       id,
@@ -119,20 +112,17 @@ const questionService = {
     return question
   },
 
-  // ─── Hard delete ─────────────────────────────────────────
   deleteQuestion: async (id) => {
     const question = await Question.findByIdAndDelete(id)
     if (!question) throw { status: 404, message: 'Question not found' }
     return { deleted: true }
   },
 
-  // ─── Get available topics (for filters / exam setup) ─────
   getSubjects: async () => {
     const subjects = await Question.distinct('subject', { isActive: true })
     return { subjects: subjects.sort() }
   },
 
-  // ─── Question count per topic ────────────────────────────
   getQuestionStats: async () => {
     const stats = await Question.aggregate([
       { $match: { isActive: true } },
@@ -143,7 +133,6 @@ const questionService = {
     return stats
   },
 
-  // ─── Passage methods ─────────────────────────────────────
   createPassage: async (data, userId) => {
     return await Passage.create({ ...data, uploadedBy: userId })
   },
