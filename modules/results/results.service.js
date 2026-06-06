@@ -53,7 +53,7 @@ const resultsService = {
     const sessions = await ExamSession.find({
       user:   userId,
       status: 'completed'
-    }).select('subjects mode jambTotal totalPercentage subjectScores createdAt timeTaken')
+    }).select('subjects mode totalPercentage passed subjectScores createdAt timeTaken')
 
     if (sessions.length === 0) {
       return {
@@ -72,7 +72,7 @@ const resultsService = {
     const averageScore       = parseFloat(
       (sessions.reduce((sum, s) => sum + s.totalPercentage, 0) / totalExams).toFixed(2)
     )
-    const bestScore          = Math.max(...sessions.map(s => s.jambTotal))
+    const bestScore          = Math.max(...sessions.map(s => s.totalPercentage))
     const totalTimePracticed = sessions.reduce((sum, s) => sum + s.timeTaken, 0)
 
     // ── Per subject stats ──────────────────────────────────
@@ -111,8 +111,8 @@ const resultsService = {
       .slice(-10)
       .map(s => ({
         date:       s.createdAt,
-        jambTotal:  s.jambTotal,
         percentage: s.totalPercentage,
+        passed:     s.passed,
         mode:       s.mode
       }))
 
@@ -124,8 +124,8 @@ const resultsService = {
         _id:        s._id,
         subjects:   s.subjects,
         mode:       s.mode,
-        jambTotal:  s.jambTotal,
         percentage: s.totalPercentage,
+        passed:     s.passed,
         timeTaken:  s.timeTaken,
         date:       s.createdAt
       }))
@@ -146,7 +146,7 @@ const resultsService = {
     const sessions = await ExamSession.find({
       user:   userId,
       status: 'completed'
-    }).populate('answers.question', 'subject questionText year')
+    }).populate('answers.question', 'subject questionText')
 
     const subjectWrong = {}
 
@@ -192,7 +192,7 @@ const resultsService = {
   getAnalytics: async (userId) => {
     const sessions = await ExamSession.find({
       user: userId, status: 'completed'
-    }).select('subjects mode jambTotal totalPercentage subjectScores createdAt timeTaken totalQuestions totalScore')
+    }).select('subjects mode totalPercentage passed subjectScores createdAt timeTaken totalQuestions totalScore')
       .sort({ createdAt: 1 })
 
     if (sessions.length === 0) return {
@@ -203,7 +203,7 @@ const resultsService = {
 
     const totalExams         = sessions.length
     const averageScore       = parseFloat((sessions.reduce((s, e) => s + e.totalPercentage, 0) / totalExams).toFixed(1))
-    const bestScore          = Math.max(...sessions.map(s => s.jambTotal))
+    const bestScore          = Math.max(...sessions.map(s => s.totalPercentage))
     const totalTimePracticed = sessions.reduce((s, e) => s + (e.timeTaken || 0), 0)
 
     // Per-subject stats
@@ -234,15 +234,15 @@ const resultsService = {
     // Score trend — last 10 exams
     const scoreTrend = sessions.slice(-10).map(s => ({
       date:       s.createdAt,
-      jambTotal:  s.jambTotal,
       percentage: s.totalPercentage,
+      passed:     s.passed,
       mode:       s.mode
     }))
 
-    // Predicted JAMB score — average of last 5 exams
+    // Predicted score — average percentage of last 5 exams
     const last5       = sessions.slice(-5)
     const predictedScore = last5.length > 0
-      ? parseFloat((last5.reduce((s, e) => s + e.jambTotal, 0) / last5.length).toFixed(1))
+      ? parseFloat((last5.reduce((s, e) => s + e.totalPercentage, 0) / last5.length).toFixed(1))
       : null
 
     return {

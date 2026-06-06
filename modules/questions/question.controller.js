@@ -43,9 +43,9 @@ const questionController = {
     apiResponse.success(res, 'Question deleted', data)
   }),
 
-  getSubjectsAndYears: asyncHandler(async (req, res) => {
-    const data = await questionService.getSubjectsAndYears()
-    apiResponse.success(res, 'Subjects and years fetched', data)
+  getSubjects: asyncHandler(async (req, res) => {
+    const data = await questionService.getSubjects()
+    apiResponse.success(res, 'Topics fetched', data)
   }),
 
   getQuestionStats: asyncHandler(async (req, res) => {

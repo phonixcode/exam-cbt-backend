@@ -3,7 +3,7 @@ const questionController = require('./question.controller')
 const { protect }        = require('../../middleware/auth.middleware')
 const { isAdmin }        = require('../../middleware/admin.middleware')
 
-router.get('/filters',              protect,          questionController.getSubjectsAndYears)
+router.get('/filters',                                questionController.getSubjects)
 router.get('/stats',                protect, isAdmin, questionController.getQuestionStats)
 router.get('/passages',             protect,          questionController.listPassages)
 router.get('/passages/:id',         protect,          questionController.getPassage)

@@ -6,15 +6,12 @@ const optionSchema = new mongoose.Schema({
 }, { _id: false })
 
 const questionSchema = new mongoose.Schema({
+  // "subject" is the topic / subject area, e.g. "anatomy", "immunity"
   subject: {
     type:      String,
-    required:  [true, 'Subject is required'],
+    required:  [true, 'Topic is required'],
     trim:      true,
     lowercase: true
-  },
-  year: {
-    type:     Number,
-    required: [true, 'Year is required']
   },
   questionNumber: {
     type:     Number,
@@ -96,8 +93,7 @@ const questionSchema = new mongoose.Schema({
 }, { timestamps: true })
 
 // ─── Indexes ──────────────────────────────────────────────
-questionSchema.index({ subject: 1, year: 1, questionNumber: 1 }, { unique: true })
-questionSchema.index({ subject: 1, year: 1 })
+questionSchema.index({ subject: 1, questionNumber: 1 }, { unique: true })
 questionSchema.index({ subject: 1, isActive: 1 })
 
 module.exports = mongoose.model('Question', questionSchema)

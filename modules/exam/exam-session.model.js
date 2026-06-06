@@ -32,8 +32,7 @@ const subjectScoreSchema = new mongoose.Schema({
   subject:    { type: String,  required: true },
   score:      { type: Number,  default: 0 },   // raw correct count
   total:      { type: Number,  required: true },
-  percentage: { type: Number,  default: 0 },
-  jambScore:  { type: Number,  default: 0 }    // scaled to 100 per subject
+  percentage: { type: Number,  default: 0 }
 }, { _id: false })
 
 const examSessionSchema = new mongoose.Schema({
@@ -44,42 +43,31 @@ const examSessionSchema = new mongoose.Schema({
   },
 
   // ─── Exam config ────────────────────────────────────────
+  // single = one topic, mock = several topics together
   mode: {
     type:     String,
     enum:     ['single', 'mock'],
     required: true
-  },
-  course: {
-    type:    String,
-    default: null   // e.g. 'medicine', 'engineering', 'law'
   },
   examMode: {
     type:    String,
     enum:    ['timed', 'practice'],
     default: 'timed'
   },
+  // topics chosen for this exam
   subjects: {
     type:     [String],
     required: true
   },
-  selectionType: {
-    type:     String,
-    enum:     ['random', 'specific'],
-    required: true
-  },
-  yearFrom: {
-    type:     Number,
-    required: true
-  },
-  yearTo: {
-    type:     Number,
-    required: true
+  passMark: {
+    type:    Number,
+    default: 50    // percentage needed to pass
   },
 
   // ─── Timing ─────────────────────────────────────────────
   timeAllowed: {
     type:    Number,
-    default: 6000     // 1hr 40min in seconds
+    default: 0        // seconds; 0 = untimed (practice)
   },
   timeTaken: {
     type:    Number,  // actual seconds used
@@ -110,9 +98,9 @@ const examSessionSchema = new mongoose.Schema({
   },
 
   // ─── Results (populated on submit) ──────────────────────
-  totalScore:      { type: Number, default: 0 },
-  totalPercentage: { type: Number, default: 0 },
-  jambTotal:       { type: Number, default: 0 },  // out of 400
+  totalScore:      { type: Number,  default: 0 },   // raw correct count
+  totalPercentage: { type: Number,  default: 0 },
+  passed:          { type: Boolean, default: false },
   subjectScores:   [subjectScoreSchema]
 
 }, { timestamps: true })

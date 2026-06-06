@@ -7,9 +7,9 @@ const adminController = {
   previewDocx: asyncHandler(async (req, res) => {
     if (!req.file) throw { status: 400, message: 'No file uploaded' }
 
-    const { subject, year } = req.body
-    const data = await adminService.previewDocx(req.file.path, { subject, year })
-    apiResponse.success(res, `${data.total} questions parsed successfully`, data)
+    const { subject } = req.body
+    const data = await adminService.previewDocx(req.file.path, { subject })
+    apiResponse.success(res, `${data.total} questions read successfully`, data)
   }),
 
   confirmImport: asyncHandler(async (req, res) => {

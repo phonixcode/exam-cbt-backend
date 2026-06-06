@@ -11,14 +11,7 @@ const questionService = {
     const filter = { isActive: true }
 
     if (query.subject) filter.subject = query.subject.toLowerCase()
-    if (query.year)    filter.year    = parseInt(query.year)
     if (query.type)    filter.type    = query.type
-
-    if (query.yearFrom || query.yearTo) {
-      filter.year = {}
-      if (query.yearFrom) filter.year.$gte = parseInt(query.yearFrom)
-      if (query.yearTo)   filter.year.$lte = parseInt(query.yearTo)
-    }
 
     if (query.search) {
       filter.$or = [
@@ -32,7 +25,7 @@ const questionService = {
         .populate('passage', 'title passageText passageImage')
         .skip(skip)
         .limit(limit)
-        .sort({ year: -1, questionNumber: 1 }),
+        .sort({ subject: 1, questionNumber: 1 }),
       Question.countDocuments(filter)
     ])
 
@@ -47,47 +40,35 @@ const questionService = {
     return question
   },
 
-  // ─── Get questions for exam session ─────────────────────
-  getExamQuestions: async ({ subject, selectionType, yearFrom, yearTo, limit = 60 }) => {
+  // ─── Get questions for an exam session (by topic) ───────
+  // limit = null/0 → use every available question for the topic
+  getExamQuestions: async ({ subject, limit = null }) => {
     const filter = { isActive: true, subject: subject.toLowerCase() }
 
-    if (selectionType === 'specific') {
-      filter.year = parseInt(yearFrom)
-    } else {
-      filter.year = {
-        $gte: parseInt(yearFrom),
-        $lte: parseInt(yearTo)
-      }
-    }
-
-    // get questions then shuffle for randomness
     const questions = await Question.find(filter)
       .populate('passage', 'title passageText passageImage')
-      .sort({ year: 1, questionNumber: 1 })
 
     if (questions.length === 0) {
-      throw { status: 404, message: `No questions found for ${subject}` }
+      throw { status: 404, message: `No questions found for "${subject}"` }
     }
 
-    // shuffle array
+    // shuffle for randomness
     const shuffled = questions.sort(() => Math.random() - 0.5)
 
-    // return up to limit
-    return shuffled.slice(0, limit)
+    return limit ? shuffled.slice(0, limit) : shuffled
   },
 
   // ─── Create single question ──────────────────────────────
   createQuestion: async (data, userId) => {
     const exists = await Question.findOne({
       subject:        data.subject.toLowerCase(),
-      year:           data.year,
       questionNumber: data.questionNumber
     })
 
     if (exists) {
       throw {
         status:  400,
-        message: `Question ${data.questionNumber} for ${data.subject} ${data.year} already exists`
+        message: `Question ${data.questionNumber} for "${data.subject}" already exists`
       }
     }
 
@@ -101,7 +82,6 @@ const questionService = {
     for (const q of questions) {
       const exists = await Question.findOne({
         subject:        q.subject.toLowerCase(),
-        year:           q.year,
         questionNumber: q.questionNumber
       })
 
@@ -146,39 +126,18 @@ const questionService = {
     return { deleted: true }
   },
 
-  // ─── Get available subjects and years (for filters) ──────
-  getSubjectsAndYears: async () => {
-    const [subjects, years] = await Promise.all([
-      Question.distinct('subject', { isActive: true }),
-      Question.distinct('year',    { isActive: true })
-    ])
-
-    return {
-      subjects: subjects.sort(),
-      years:    years.sort((a, b) => b - a)
-    }
+  // ─── Get available topics (for filters / exam setup) ─────
+  getSubjects: async () => {
+    const subjects = await Question.distinct('subject', { isActive: true })
+    return { subjects: subjects.sort() }
   },
 
-  // ─── Stats per subject ───────────────────────────────────
+  // ─── Question count per topic ────────────────────────────
   getQuestionStats: async () => {
     const stats = await Question.aggregate([
       { $match: { isActive: true } },
-      {
-        $group: {
-          _id:   { subject: '$subject', year: '$year' },
-          count: { $sum: 1 }
-        }
-      },
-      {
-        $group: {
-          _id:        '$_id.subject',
-          totalCount: { $sum: '$count' },
-          years: {
-            $push: { year: '$_id.year', count: '$count' }
-          }
-        }
-      },
-      { $sort: { _id: 1 } }
+      { $group: { _id: '$subject', totalCount: { $sum: 1 } } },
+      { $sort:  { _id: 1 } }
     ])
 
     return stats
@@ -194,10 +153,9 @@ const questionService = {
     const filter = {}
 
     if (query.subject) filter.subject = query.subject.toLowerCase()
-    if (query.year)    filter.year    = parseInt(query.year)
 
     const [data, total] = await Promise.all([
-      Passage.find(filter).skip(skip).limit(limit).sort({ year: -1 }),
+      Passage.find(filter).skip(skip).limit(limit).sort({ createdAt: -1 }),
       Passage.countDocuments(filter)
     ])
 

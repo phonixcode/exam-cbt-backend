@@ -9,11 +9,10 @@ const { paginate,
 const adminService = {
 
   // ─── Parse docx and return preview (don't save yet) ──────
-  previewDocx: async (filePath, { subject, year }) => {
-    if (!subject) throw { status: 400, message: 'Subject is required' }
-    if (!year)    throw { status: 400, message: 'Year is required' }
+  previewDocx: async (filePath, { subject }) => {
+    if (!subject) throw { status: 400, message: 'Please choose a topic for these questions' }
 
-    const { questions } = await adminParser.parseDocx(filePath, { subject, year })
+    const { questions } = await adminParser.parseDocx(filePath, { subject })
 
     // clean up uploaded docx after parsing
     fs.unlinkSync(filePath)
@@ -21,14 +20,13 @@ const adminService = {
     if (questions.length === 0) {
       throw {
         status:  400,
-        message: 'No questions could be parsed from this file. Check the document format.'
+        message: 'No questions could be read from this file. Check the document format.'
       }
     }
 
     return {
-      total:     questions.length,
+      total:    questions.length,
       subject,
-      year:      parseInt(year),
       questions
     }
   },
@@ -59,8 +57,7 @@ const adminService = {
         } else {
           const passage = await Passage.create({
             subject:     q.subject,
-            year:        q.year,
-            title:       q.passageTitle || `Passage — ${q.subject} ${q.year}`,
+            title:       q.passageTitle || `Passage — ${q.subject}`,
             passageText: q.passageText.trim(),
             uploadedBy:  userId
           })
@@ -72,7 +69,6 @@ const adminService = {
       // Check for duplicate
       const exists = await Question.findOne({
         subject:        q.subject.toLowerCase(),
-        year:           q.year,
         questionNumber: q.questionNumber
       })
 
@@ -80,7 +76,6 @@ const adminService = {
 
       await Question.create({
         subject:        q.subject.toLowerCase(),
-        year:           q.year,
         questionNumber: q.questionNumber,
         type:           q.type || 'mcq',
         passage:        passageId,
@@ -90,7 +85,7 @@ const adminService = {
         correctAnswer:  q.correctAnswer,
         acceptedAnswers: q.acceptedAnswers || [],
         explanation:    q.explanation || 'No explanation provided.',
-        source:         q.source || `JAMB ${q.year}`,
+        source:         q.source || '',
         isActive:       true,
         uploadedBy:     userId
       })

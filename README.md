@@ -1,6 +1,9 @@
-# JAMB CBT — Backend
+# Nursing CBT — Backend
 
-Node.js + Express REST API for the JAMB CBT Simulator.
+Node.js + Express REST API for the Nursing Board Exam CBT.
+
+Questions are organised by **topic** (e.g. *Anatomy*, *Immunity*) — there is no
+year/JAMB structure. Exams are scored as a simple percentage against a pass mark.
 
 ---
 
@@ -24,7 +27,7 @@ npm install
 Create a `.env` file in the `backend/` directory:
 ```env
 PORT=5005
-MONGODB_URI=mongodb://localhost:27017/jamb-cbt
+MONGODB_URI=mongodb://localhost:27017/nursing-cbt
 JWT_SECRET=your_strong_random_secret_here
 JWT_EXPIRE=30d
 NODE_ENV=development
@@ -76,17 +79,21 @@ curl -X POST http://localhost:5005/api/auth/register-admin \
 
 ## Importing Questions (.docx Format)
 
-Questions can be bulk-imported through the Admin panel via `.docx` upload. The parser expects this format:
+Questions are bulk-imported through the Admin panel via `.docx` upload. You pick a
+**topic** at upload time; the parser is lenient and reads common layouts:
 
 ```
-1. What is the meaning of SYCOPHANT?
-A. Flatterer
-B. Dictator
-C. Philosopher
-D. Warrior
-Answer: A
-Explanation: A sycophant is someone who flatters to gain favor.
+The functional unit of the kidney is the:
+A. Neuron  B. Nephron  C. Alveolus  D. Osteon
+Answer: B
+Explanation: (optional)
 ```
+
+The parser also handles:
+- Question numbers present **or** absent (they're auto-numbered per upload)
+- Options on **one line** (`A. … B. … C. …`) or one per line
+- Optional `Explanation:` lines
+- No year is required
 
 Supported question types:
 - Multiple choice (MCQ)

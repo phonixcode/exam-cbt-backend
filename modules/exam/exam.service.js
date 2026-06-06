@@ -1,50 +1,33 @@
 const ExamSession       = require('./exam-session.model')
 const questionService   = require('../questions/question.service')
 
-const ENGLISH_QUESTIONS = 60    // Use of English always 60
-const OTHER_QUESTIONS   = 40    // All other subjects 40
-const MOCK_TIME         = 7200  // 2 hours flat for full mock (180 questions)
-const SECS_PER_QUESTION = 40    // ~40 seconds per question for single subject
-
-const isEnglish = (subject) =>
-  subject.toLowerCase() === 'use of english'
-
-const questionsForSubject = (subject) =>
-  isEnglish(subject) ? ENGLISH_QUESTIONS : OTHER_QUESTIONS
-
-// Mock: JAMB standard is 2 hours for all 180 questions together.
-// Single: 40 seconds per question.
-const timeForSubjects = (subjects, mode) =>
-  mode === 'mock'
-    ? MOCK_TIME
-    : questionsForSubject(subjects[0]) * SECS_PER_QUESTION
+const SECS_PER_QUESTION = 60    // ~1 minute per question for timed exams
+const DEFAULT_PASS_MARK = 50    // percentage needed to pass
 
 const examService = {
 
+  // data: { mode, subjects, questionsPerTopic, examMode, passMark, timeAllowed }
   startExam: async (data, userId) => {
-    const { mode, subjects, selectionType, yearFrom, yearTo, course } = data
+    const { mode, subjects, questionsPerTopic, examMode, passMark, timeAllowed } = data
 
     if (!subjects || subjects.length === 0)
-      throw { status: 400, message: 'At least one subject is required' }
+      throw { status: 400, message: 'Please pick at least one topic' }
 
-    if (mode === 'mock' && subjects.length !== 4)
-      throw { status: 400, message: 'Mock exam requires exactly 4 subjects' }
-
-    if (!yearFrom || !yearTo)
-      throw { status: 400, message: 'Year range is required' }
+    if (mode === 'mock' && subjects.length < 2)
+      throw { status: 400, message: 'A mock exam needs at least 2 topics' }
 
     const ongoing = await ExamSession.findOne({ user: userId, status: 'ongoing' })
     if (ongoing)
       throw { status: 400, message: 'You have an ongoing exam. Please submit or abandon it first.' }
 
-    // Fetch questions — English gets 60, others get 40
+    // how many questions to pull from each topic (blank = all available)
+    const perTopic = questionsPerTopic ? parseInt(questionsPerTopic) : null
+
     const allAnswers = []
 
     for (const subject of subjects) {
-      const limit = questionsForSubject(subject)
-
       const questions = await questionService.getExamQuestions({
-        subject, selectionType, yearFrom, yearTo, limit
+        subject, limit: perTopic
       })
 
       for (const q of questions) {
@@ -59,15 +42,18 @@ const examService = {
       }
     }
 
+    const isPractice = examMode === 'practice'
+    const time = isPractice
+      ? 0
+      : (timeAllowed ? parseInt(timeAllowed) : allAnswers.length * SECS_PER_QUESTION)
+
     const session = await ExamSession.create({
       user:           userId,
       mode,
       subjects,
-      selectionType,
-      yearFrom:       parseInt(yearFrom),
-      yearTo:         parseInt(yearTo),
-      course:         course || null,
-      timeAllowed:    timeForSubjects(subjects, mode),
+      examMode:       isPractice ? 'practice' : 'timed',
+      passMark:       passMark ? parseInt(passMark) : DEFAULT_PASS_MARK,
+      timeAllowed:    time,
       totalQuestions: allAnswers.length,
       answers:        allAnswers,
       status:         'ongoing'
@@ -139,16 +125,13 @@ const examService = {
       }
     }
 
-    // ── Calculate subject scores ──────────────────────────────
+    // ── Calculate per-topic scores ────────────────────────────
     const subjectScores = Object.entries(subjectMap).map(([subject, data]) => {
       const percentage = parseFloat(((data.score / data.total) * 100).toFixed(2))
-      // JAMB: each subject scaled to 100, total out of 400
-      const jambScore  = parseFloat((percentage).toFixed(2))
-      return { subject, score: data.score, total: data.total, percentage, jambScore }
+      return { subject, score: data.score, total: data.total, percentage }
     })
 
     const totalPercentage = parseFloat(((totalScore / session.totalQuestions) * 100).toFixed(2))
-    const jambTotal       = parseFloat(subjectScores.reduce((sum, s) => sum + s.jambScore, 0).toFixed(2))
 
     // ── Update session ────────────────────────────────────────
     session.status          = 'completed'
@@ -156,7 +139,7 @@ const examService = {
     session.completedAt     = new Date()
     session.totalScore      = totalScore
     session.totalPercentage = totalPercentage
-    session.jambTotal       = jambTotal
+    session.passed          = totalPercentage >= (session.passMark || DEFAULT_PASS_MARK)
     session.subjectScores   = subjectScores
 
     await session.save()
